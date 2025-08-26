@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRCU Performance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #16a34a; /* Dark Green */
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-active {
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .modal-content {
+            transition: transform 0.25s ease, opacity 0.18s ease;
+            transform: translateY(-12px);
+            opacity: 0.98;
+        }
+        .phase-checkbox:checked + label {
+            text-decoration: line-through;
+            color: #6b7280;
+        }
+        .dashboard-tile {
+            background-color: #fafad2; /* Light Goldenrod Yellow */
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .dashboard-tile:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        .nav-btn {
+            transition: background-color 0.2s ease-in-out;
+        }
+        .nav-btn.active {
+            background-color: #15803d; /* Darker Green */
+            font-weight: 600;
+        }
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+        }
+        .collapsible-header svg {
+            transition: transform 0.3s ease-in-out;
+        }
+        .collapsible-header.collapsed svg {
+            transform: rotate(-90deg);
+        }
+        .app-title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            text-align: center;
+        }
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin-top: 0.5rem;
+        }
+    .tile-title { font-size: 1rem; font-weight: 700; }
+    .tile-progress { font-size: 1.25rem; font-weight: 700; }
+    .tile-small { padding: 0.75rem; }
+    @media (max-width: 640px) { .tile-title { font-size: 0.9rem; } .tile-progress { font-size: 1rem; } }
+        @media (min-width: 640px) { .app-title { font-size: 1.75rem; } }
+        @media (min-width: 1024px) { .app-title { font-size: 2rem; } }
+    </style>
+</head>
+<body class="text-gray-100">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md">
+            <header class="mb-8 flex flex-col items-center justify-center">
+                <div class="app-title-container flex flex-col items-center justify-center w-full text-center">
+                    <img src="assets/logo.png" alt="MRCU Logo" class="mx-auto h-24 sm:h-32 md:h-40 bg-white rounded-full p-2" onerror="this.onerror=null;this.src='https://placehold.co/150x150/FFFFFF/000000?text=MRCU';">
+                    <h1 class="app-title mt-3 max-w-xl text-lg sm:text-xl md:text-2xl">The Mildmay Centre for Applied Research in Health</h1>
+                </div>
+            </header>
+            <div class="bg-white text-gray-800 rounded-xl shadow-lg p-8">
+                <h2 class="text-2xl font-bold text-center mb-4">Login</h2>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="login-role" class="block text-sm font-medium text-gray-700">Sign in as:</label>
+                        <select id="login-role" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="login-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" id="login-email" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <div class="mb-4" id="login-password-field">
+                        <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="login-password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <p id="login-error" class="text-red-500 text-sm mb-4 hidden"></p>
+                    <button type="submit" id="login-btn" class="w-full text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 flex items-center justify-center" style="background-color: #16a34a;">
+                        <span id="login-btn-text">Login</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="main-container" class="container mx-auto p-4 sm:p-6 lg:p-8 hidden">
+        <header class="mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div id="header-left-content" class="flex-1 text-center"></div>
+            <div class="flex items-center ml-auto">
+                <div class="app-title-container flex flex-col items-center justify-center text-center md:flex-row md:items-center">
+                    <img src="assets/logo.png" alt="MRCU Logo" class="h-16 sm:h-20 md:h-24 w-auto bg-white rounded-full p-1 mr-0 md:mr-3" onerror="this.onerror=null;this.src='https://placehold.co/100x100/FFFFFF/000000?text=MRCU';">
+                    <h1 class="app-title mt-2 md:mt-0 text-base sm:text-lg md:text-xl">The Mildmay Centre for Applied Research in Health</h1>
+                </div>
+            </div>
+        </header>
+        
+        <nav class="bg-green-800 rounded-lg shadow-md mb-8 p-2 flex justify-center gap-2">
+            <button data-page="dashboard-page" class="nav-btn text-white font-medium py-2 px-4 rounded-md active">Dashboard</button>
+            <button data-page="contributions-page" class="nav-btn text-white font-medium py-2 px-4 rounded-md">Contributions</button>
+            <button id="admin-nav-btn" data-page="admin-page" class="nav-btn text-white font-medium py-2 px-4 rounded-md hidden">Admin</button>
+            <button id="logout-btn" class="nav-btn text-red-100 bg-red-600 hover:bg-red-700 font-medium py-2 px-4 rounded-md">Logout</button>
+        </nav>
+
+        <main>
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page">
+                <section id="dashboard-section" class="mb-10">
+                    <h2 class="text-2xl font-bold text-white mb-4">Activities Dashboard</h2>
+                    <div id="dashboard-cards-container" class="max-h-[70vh] overflow-y-auto pr-2">
+                             <div id="dashboard-cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+                    </div>
+                    <!-- Charts & Filters -->
+                    <div id="dashboard-visuals" class="mt-8 bg-white text-gray-800 rounded-xl shadow-lg p-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                            <div class="flex flex-wrap gap-3 items-center">
+                                <label class="text-sm font-medium mr-2">Year</label>
+                                <select id="chart-filter-year" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">All</option></select>
+                                <label class="text-sm font-medium ml-2">Month</label>
+                                <select id="chart-filter-month" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">All</option></select>
+                                <label class="text-sm font-medium ml-2">Quarter</label>
+                                <select id="chart-filter-quarter" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">All</option><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select>
+                            </div>
+                            <div class="flex flex-wrap gap-3 items-center">
+                                <label class="text-sm font-medium">From</label>
+                                <input id="chart-filter-from" type="date" class="rounded-md border-gray-300 shadow-sm text-gray-800">
+                                <label class="text-sm font-medium">To</label>
+                                <input id="chart-filter-to" type="date" class="rounded-md border-gray-300 shadow-sm text-gray-800">
+                                <label class="text-sm font-medium ml-2">User</label>
+                                <select id="chart-filter-user" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">All users</option></select>
+                                <label class="text-sm font-medium ml-2">Status</label>
+                                <select id="chart-filter-status" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">All</option><option>Not Started</option><option>In Progress</option><option>Completed</option><option>On Hold</option></select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="p-2">
+                                <h4 class="text-sm font-bold mb-2">Status Distribution</h4>
+                                <canvas id="chart-pie" aria-label="Status distribution" role="img"></canvas>
+                            </div>
+                            <div class="p-2">
+                                <h4 class="text-sm font-bold mb-2">Contributions per Activity</h4>
+                                <canvas id="chart-bar" aria-label="Contributions per activity" role="img"></canvas>
+                            </div>
+                            <div class="p-2">
+                                <h4 class="text-sm font-bold mb-2">Contributions Over Time</h4>
+                                <canvas id="chart-line" aria-label="Contributions over time" role="img"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Contributions Page -->
+            <div id="contributions-page" class="page hidden">
+                <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-white">All Contributions</h2>
+                    <button id="add-contribution-btn" class="text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 flex items-center" style="background-color: #2563eb;">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        Add Contribution
+                    </button>
+                </div>
+                 <div id="admin-contribution-filters" class="bg-gray-200 p-4 rounded-lg shadow-md mb-4 space-y-4 hidden">
+                    <h3 class="text-lg font-bold text-gray-800">Filter Contributions</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <select id="filter-activity" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">Filter by Activity</option></select>
+                        <select id="filter-user" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">Filter by User</option></select>
+                        <select id="filter-status" class="rounded-md border-gray-300 shadow-sm text-gray-800"><option value="">Filter by Status</option></select>
+                        <button id="export-csv-btn" class="text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Export as CSV/Excel</button>
+                    </div>
+                </div>
+                <div class="bg-white text-gray-800 rounded-xl shadow-lg overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Activity</th>
+                                <th scope="col" class="px-6 py-3">Details</th>
+                                <th scope="col" class="px-6 py-3">Responsible Person</th>
+                                <th scope="col" class="px-6 py-3">% Achieved</th>
+                                <th scope="col" class="px-6 py-3">Status</th>
+                                <th scope="col" class="px-6 py-3">Last Updated</th>
+                                <th scope="col" class="px-6 py-3"><span class="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="contributions-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Admin Page -->
+            <div id="admin-page" class="page hidden">
+                <div class="bg-gray-200 p-6 rounded-lg shadow-md mb-4 space-y-6">
+                    <button id="back-to-dashboard-btn" class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm mb-4">Back to Dashboard</button>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Admin Controls</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <button id="manage-users-btn" class="text-sm bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Manage Users</button>
+                            <button id="manage-activities-btn" class="text-sm bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">Manage Activities</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="contribution-modal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-content bg-white text-gray-800 w-11/12 md:max-w-2xl mx-auto rounded-xl shadow-lg z-50 overflow-y-auto transform -translate-y-full" style="max-height: 90vh;">
+            <div class="py-4 px-6 bg-gray-50 rounded-t-xl sticky top-0 z-10">
+                <div class="flex justify-between items-center">
+                    <p id="modal-title" class="text-xl font-bold">Add New Contribution</p>
+                    <button id="close-modal-btn" class="cursor-pointer z-50">
+                        <svg class="fill-current text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 18"><path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="contribution-form">
+                    <input type="hidden" id="contribution-id">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label for="activity" class="block text-sm font-medium">Activity</label>
+                            <select id="activity" class="mt-1 block w-full" required></select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="contribution-details" class="block text-sm font-medium">Details / Description</label>
+                            <input type="text" id="contribution-details" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label for="responsible-person" class="block text-sm font-medium">Responsible Person</label>
+                            <select id="responsible-person" class="mt-1 block w-full" required></select>
+                        </div>
+                        <div>
+                            <label for="status" class="block text-sm font-medium">Status</label>
+                            <select id="status" class="mt-1 block w-full" required>
+                                <option>Not Started</option>
+                                <option>In Progress</option>
+                                <option>Completed</option>
+                                <option>On Hold</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2" id="phases-container">
+                            <label class="block text-sm font-medium">Phases</label>
+                            <div id="phases-checklist" class="mt-2 space-y-2 max-h-40 overflow-y-auto p-2 border rounded-md"></div>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                        <button type="submit" class="text-white font-bold py-2 px-4 rounded-lg" style="background-color: #16a34a;">Save Contribution</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="manage-activities-modal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-content bg-white text-gray-800 w-11/12 md:max-w-3xl mx-auto rounded-xl shadow-lg z-50 transform -translate-y-full" style="max-height: 90vh; overflow-y: auto;">
+            <div class="py-4 px-6 bg-gray-50 rounded-t-xl sticky top-0 z-10">
+                <div class="flex justify-between items-center">
+                    <p class="text-xl font-bold">Manage Activities</p>
+                    <button id="close-manage-activities-modal-btn" class="cursor-pointer z-50">
+                         <svg class="fill-current text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 18"><path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="add-activity-form" class="mb-6 p-4 border rounded-lg">
+                    <h3 class="text-lg font-medium mb-2">Add New Activity</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label for="new-activity-name" class="block text-sm font-medium">Activity Name</label>
+                            <input type="text" id="new-activity-name" class="mt-1 block w-full" required>
+                        </div>
+                        <div>
+                            <label for="new-activity-type" class="block text-sm font-medium">Type</label>
+                            <select id="new-activity-type" class="mt-1 block w-full">
+                                <option value="dynamic">Dynamic (#)</option>
+                                <option value="fixed">Fixed (%)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="new-activity-target" class="block text-sm font-medium">Target</label>
+                            <input type="number" id="new-activity-target" class="mt-1 block w-full" required>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="new-activity-stages" class="block text-sm font-medium">Stages (comma-separated)</label>
+                            <input type="text" id="new-activity-stages" class="mt-1 block w-full" placeholder="e.g., Stage 1, Stage 2">
+                        </div>
+                         <div class="md:col-span-2">
+                            <label for="new-activity-trigger" class="block text-sm font-medium">Trigger Stage for Dashboard</label>
+                            <select id="new-activity-trigger" class="mt-1 block w-full"></select>
+                        </div>
+                    </div>
+                    <button type="submit" class="mt-4 text-white font-bold py-2 px-4 rounded-lg" style="background-color: #16a34a;">Add Activity</button>
+                </form>
+                <h3 class="text-lg font-medium mb-2">Existing Activities</h3>
+                <div id="existing-activities-list" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="edit-activity-modal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-content bg-white text-gray-800 w-11/12 md:max-w-2xl mx-auto rounded-xl shadow-lg z-50 transform -translate-y-full" style="max-height: 90vh; overflow-y: auto;">
+            <div class="py-4 px-6 bg-gray-50 rounded-t-xl sticky top-0 z-10">
+                 <p class="text-xl font-bold">Edit Activity</p>
+                 <button id="close-edit-activity-modal-btn" class="cursor-pointer z-50">&times;</button>
+            </div>
+            <div class="p-6">
+                <form id="edit-activity-form"></form>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="manage-users-modal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-content bg-white text-gray-800 w-11/12 md:max-w-3xl mx-auto rounded-xl shadow-lg z-50 transform -translate-y-full" style="max-height: 90vh; overflow-y: auto;">
+             <div class="py-4 px-6 bg-gray-50 rounded-t-xl sticky top-0 z-10">
+                <div class="flex justify-between items-center">
+                    <p class="text-xl font-bold">Manage Users</p>
+                    <button id="close-users-modal-btn" class="cursor-pointer z-50">
+                         <svg class="fill-current text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 18 18"><path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="add-user-form" class="mb-6 p-4 border rounded-lg">
+                    <h3 class="text-lg font-medium mb-2">Add New User</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="new-user-name" class="block text-sm font-medium">Full Name</label>
+                            <input type="text" id="new-user-name" class="mt-1 block w-full" required>
+                        </div>
+                        <div>
+                            <label for="new-user-email" class="block text-sm font-medium">Email</label>
+                            <input type="email" id="new-user-email" class="mt-1 block w-full" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="mt-4 text-white font-bold py-2 px-4 rounded-lg" style="background-color: #16a34a;">Add User</button>
+                </form>
+                <h3 class="text-lg font-medium mb-2">Existing Users</h3>
+                <div id="existing-users-list" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="edit-user-modal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-content bg-white text-gray-800 w-11/12 md:max-w-2xl mx-auto rounded-xl shadow-lg z-50 transform -translate-y-full" style="max-height: 90vh; overflow-y: auto;">
+             <div class="py-4 px-6 bg-gray-50 rounded-t-xl sticky top-0 z-10">
+                 <p class="text-xl font-bold">Edit User</p>
+                 <button id="close-edit-user-modal-btn" class="cursor-pointer z-50">&times;</button>
+            </div>
+            <div class="p-6">
+                <form id="edit-user-form"></form>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+// --- DATA STORE ---
+let mockUsers = [
+    { id: 1, name: 'Drake Musoki', email: 'drake.musoki@example.com' },
+    { id: 2, name: 'Racheal Dedibo', email: 'racheal.dedibo@example.com' },
+    { id: 3, name: 'Joseph Mwaka', email: 'joseph.mwaka@example.com' },
+    { id: 4, name: 'Solomon Agaba', email: 'solomon.agaba@example.com' },
+];
+
+let mockActivities = [
+    { id: 1, name: 'Advance Digital Health', type: 'dynamic', target: 10, stages: ['Idea', 'Design', 'Pilot', 'Scale'], triggerStage: 'Pilot', mounted: true },
+    { id: 2, name: 'Boost Diagnostic and Treatment Capabilities', type: 'dynamic', target: 5, stages: ['Survey', 'Validation', 'Pilot', 'Adopt'], triggerStage: 'Pilot', mounted: true },
+    { id: 3, name: 'Integrate Traditional and Conventional Medicine', type: 'dynamic', target: 3, stages: ['Stakeholder Engagement', 'Protocol Development', 'Joint Projects', 'Evaluation'], triggerStage: 'Joint Projects' },
+    { id: 4, name: 'Combat Emerging Infections and AMR', type: 'dynamic', target: 8, stages: ['Surveillance', 'Investigation', 'Intervention', 'Reporting'], triggerStage: 'Intervention' },
+    { id: 5, name: 'Strengthen Mental Health Support', type: 'dynamic', target: 200, stages: ['Assessment', 'Program Design', 'Pilot', 'Integration'], triggerStage: 'Pilot' },
+    { id: 6, name: 'Building capacity in Research Administration', type: 'dynamic', target: 10, stages: ['Assessment', 'Training', 'Process Improvement', 'Benchmarking'], triggerStage: 'Process Improvement' },
+    { id: 7, name: 'Establish a population cohort for disease surveillance', type: 'dynamic', target: 1000, stages: ['Protocol', 'Enrollment', 'Follow-up', 'Analysis'], triggerStage: 'Enrollment' },
+    { id: 8, name: 'Developing a data repository', type: 'fixed', target: 100, stages: ['Requirements', 'Development', 'Testing', 'Deployment'], triggerStage: 'Deployment' },
+    { id: 9, name: 'Developing a biorepository', type: 'fixed', target: 100, stages: ['Infrastructure', 'SOPs', 'Collection', 'Storage'], triggerStage: 'Collection' },
+    { id: 10, name: 'Consolidate applied research & build capacity', type: 'dynamic', target: 6, stages: ['Proposal', 'Execution', 'Analysis', 'Dissemination'], triggerStage: 'Execution' },
+    { id: 11, name: 'Develop MRCU-Online portal', type: 'fixed', target: 100, stages: ['Content', 'Development', 'Testing', 'Launch'], triggerStage: 'Launch', mounted: true },
+    { id: 12, name: 'Disseminating research findings', type: 'dynamic', target: 12, stages: ['Drafting', 'Submission', 'Publication', 'Promotion'], triggerStage: 'Publication' },
+    { id: 12, name: 'Disseminating research findings', type: 'dynamic', target: 12, stages: ['Drafting', 'Submission', 'Publication', 'Promotion'], triggerStage: 'Publication', mounted: true },
+    { id: 13, name: 'Build strategic partnerships for collaborative research', type: 'dynamic', target: 5, stages: ['Mapping', 'Outreach', 'Agreement', 'Joint Activity'], triggerStage: 'Agreement' },
+    { id: 14, name: 'Capacity building grants', type: 'dynamic', target: 4, stages: ['Call', 'Application', 'Award', 'Implementation'], triggerStage: 'Award' },
+    { id: 15, name: 'Establish R&D infrastructure', type: 'fixed', target: 100, stages: ['Plan', 'Procure', 'Install', 'Commission'], triggerStage: 'Commission' },
+    { id: 16, name: 'Talent development & nurturing researchers', type: 'dynamic', target: 20, stages: ['Recruit', 'Train', 'Mentor', 'Deliverables'], triggerStage: 'Mentor' },
+    { id: 17, name: 'Young researchers mentored', type: 'dynamic', target: 15, stages: ['Selection', 'Mentoring', 'Output', 'Graduation'], triggerStage: 'Output' },
+    { id: 18, name: 'Soft skills training for staff', type: 'dynamic', target: 50, stages: ['Design', 'Training', 'Assessment', 'Follow-up'], triggerStage: 'Training' },
+    { id: 19, name: 'Preventive & community health pilot implementations', type: 'dynamic', target: 3, stages: ['Adaptation', 'Pilot', 'Scale', 'Evaluate'], triggerStage: 'Pilot' },
+    { id: 20, name: 'Embed fellowships & advanced degrees', type: 'dynamic', target: 10, stages: ['Recruit', 'Enroll', 'Research', 'Graduate'], triggerStage: 'Enroll', mounted: true },
+    { id: 21, name: 'Fellowships & post-doctoral placements', type: 'dynamic', target: 6, stages: ['Advertise', 'Select', 'Place', 'Deliver'], triggerStage: 'Place' },
+    { id: 22, name: 'Embedded fellows contributing to projects', type: 'dynamic', target: 8, stages: ['Placement', 'Contribution', 'Reporting', 'Impact'], triggerStage: 'Contribution' },
+    { id: 23, name: 'Develop capacity for grant writing', type: 'dynamic', target: 20, stages: ['Training', 'Proposal', 'Submission', 'Follow-up'], triggerStage: 'Submission' },
+    { id: 24, name: 'Increase success rate of grant applications', type: 'fixed', target: 100, stages: ['Preparation', 'Submission', 'Review', 'Award'], triggerStage: 'Award' },
+    { id: 25, name: 'AOP completion', type: 'fixed', target: 100, stages: ['Q1 Review', 'Q2 Review', 'Q3 Review', 'Q4 Review'], triggerStage: 'Q4 Review' },
+    { id: 26, name: 'Run MUREC', type: 'fixed', target: 100, stages: ['Meetings', 'Review', 'Decision', 'Follow-up'], triggerStage: 'Decision' },
+    { id: 27, name: 'Explore VC & PPPs', type: 'dynamic', target: 5, stages: ['Mapping', 'Engagement', 'Agreement', 'Project'], triggerStage: 'Agreement' },
+    { id: 28, name: 'Partnerships & networking', type: 'dynamic', target: 20, stages: ['Plan', 'Engage', 'Execute', 'Report'], triggerStage: 'Engage' },
+    { id: 29, name: 'Customer satisfaction', type: 'fixed', target: 100, stages: ['Survey', 'Analysis', 'Action', 'Re-survey'], triggerStage: 'Analysis' },
+    { id: 30, name: 'Staff satisfaction & performance', type: 'fixed', target: 100, stages: ['Survey', 'Review', 'Action', 'Reassess'], triggerStage: 'Review', mounted: false }
+];
+
+let mockContributions = [
+    { id: 1, activityId: 1, details: 'Digital health solution for TB tracking', responsiblePersonId: 1, completedStages: ['Planning', 'Development'], status: 'In Progress', lastUpdated: '2024-08-15T10:00:00Z' },
+    { id: 2, activityId: 8, details: 'Clinical trials data repository', responsiblePersonId: 2, completedStages: ['Requirements', 'Development', 'Testing', 'Deployment'], status: 'Completed', lastUpdated: '2024-07-20T14:30:00Z' },
+    { id: 3, activityId: 12, details: 'Publication on Malaria research', responsiblePersonId: 3, completedStages: ['Drafting', 'Submission'], status: 'In Progress', lastUpdated: '2024-08-18T09:00:00Z' },
+    { id: 4, activityId: 1, details: 'Maternal health app', responsiblePersonId: 4, completedStages: ['Planning', 'Development', 'Piloting'], status: 'In Progress', lastUpdated: '2024-08-19T11:00:00Z' },
+];
+
+// User-to-Activity permissions mapping
+let userActivityPermissions = {
+    // By default, no user has posting permissions; admin will assign activities
+    1: [],
+    2: [],
+    3: [],
+    4: []
+};
+
+let currentUser = null;
+const ADMIN_PASSWORD = 'admin'; 
+
+// --- GLOBAL FUNCTIONS ---
+// Moved downloadCSV to global scope to prevent reference errors
+window.downloadCSV = (contributions, activities, users) => {
+    const calculatePercentage = (contribution) => {
+        const activity = activities.find(a => a.id === contribution.activityId);
+        if (!activity?.stages?.length) return 100;
+        return Math.round((contribution.completedStages.length / activity.stages.length) * 100);
+    };
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Activity,Details,Responsible Person,% Achieved,Status,Last Updated\n";
+
+    const sanitize = (str) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+
+    contributions.forEach(c => {
+        const activity = activities.find(a => a.id === c.activityId)?.name || 'N/A';
+        const user = users.find(u => u.id === c.responsiblePersonId)?.name || 'Deleted User';
+        const percentage = calculatePercentage(c);
+        
+        const row = [
+            sanitize(activity),
+            sanitize(c.details),
+            sanitize(user),
+            percentage,
+            c.status,
+            new Date(c.lastUpdated).toLocaleDateString()
+        ].join(',');
+        csvContent += row + "\r\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "contributions.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+// --- DOMContentLoaded ---
+document.addEventListener('DOMContentLoaded', () => {
+    const pages = document.querySelectorAll('.page');
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const loginScreen = document.getElementById('login-screen');
+    const mainContainer = document.getElementById('main-container');
+    
+    // Modals
+    const contributionModal = document.getElementById('contribution-modal');
+    const manageActivitiesModal = document.getElementById('manage-activities-modal');
+    const editActivityModal = document.getElementById('edit-activity-modal');
+    const manageUsersModal = document.getElementById('manage-users-modal');
+    const editUserModal = document.getElementById('edit-user-modal');
+
+    // --- Event Listeners ---
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    navButtons.forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
+    
+    // Contribution Modal
+    document.getElementById('add-contribution-btn').addEventListener('click', () => openContributionModal());
+    document.getElementById('close-modal-btn').addEventListener('click', () => closeModal(contributionModal));
+    document.getElementById('cancel-btn').addEventListener('click', () => closeModal(contributionModal));
+    document.getElementById('contribution-form').addEventListener('submit', handleContributionFormSubmit);
+    document.getElementById('activity').addEventListener('change', populatePhasesForContribution);
+    
+    // Admin Page & Modals
+    document.getElementById('back-to-dashboard-btn').addEventListener('click', () => showPage('dashboard-page'));
+    
+    // Manage Activities
+    document.getElementById('manage-activities-btn').addEventListener('click', openManageActivitiesModal);
+    document.getElementById('close-manage-activities-modal-btn').addEventListener('click', () => closeModal(manageActivitiesModal));
+    document.getElementById('add-activity-form').addEventListener('submit', handleAddActivity);
+    document.getElementById('new-activity-stages').addEventListener('input', updateTriggerStageOptions);
+    document.getElementById('close-edit-activity-modal-btn').addEventListener('click', () => closeModal(editActivityModal));
+
+    // Manage Users
+    document.getElementById('manage-users-btn').addEventListener('click', openManageUsersModal);
+    document.getElementById('close-users-modal-btn').addEventListener('click', () => closeModal(manageUsersModal));
+    document.getElementById('add-user-form').addEventListener('submit', handleAddUser);
+    document.getElementById('close-edit-user-modal-btn').addEventListener('click', () => closeModal(editUserModal));
+
+    // Contribution Page Filters (Admin only)
+    document.getElementById('filter-activity').addEventListener('change', () => renderContributionsTable());
+    document.getElementById('filter-user').addEventListener('change', () => renderContributionsTable());
+    document.getElementById('filter-status').addEventListener('change', () => renderContributionsTable());
+    document.getElementById('export-csv-btn').addEventListener('click', () => {
+        const contributionsToExport = getFilteredContributions();
+        window.downloadCSV(contributionsToExport, mockActivities, mockUsers);
+    });
+
+    // --- Core Functions ---
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        const btn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.dataset.page === pageId);
+        if (btn) btn.classList.add('active');
+        const page = document.getElementById(pageId);
+        if (page) page.classList.remove('hidden');
+    }
+
+    function showActivityContributions(activityId) {
+        // Switch to contributions page and apply a temporary filter
+        showPage('contributions-page');
+        const filterActivity = document.getElementById('filter-activity');
+        if (filterActivity) {
+            filterActivity.value = activityId;
+            renderContributionsTable();
+        }
+    }
+    // Expose helpers to global scope for inline handlers
+    window.showPage = showPage;
+    window.showActivityContributions = showActivityContributions;
+    function handleLogin(e) {
+        e.preventDefault();
+        const role = document.getElementById('login-role').value;
+        const email = document.getElementById('login-email').value.toLowerCase();
+        const password = document.getElementById('login-password').value;
+        const loginError = document.getElementById('login-error');
+        loginError.classList.add('hidden');
+
+        if (role === 'admin' && email === 'admin@mrcu.org' && password === ADMIN_PASSWORD) {
+            currentUser = { id: 0, name: 'Admin', email: 'admin@mrcu.org', role: 'admin' };
+            initializeApp();
+        } else if (role === 'user') {
+            const user = mockUsers.find(u => u.email.toLowerCase() === email);
+            if (user) {
+                currentUser = { ...user, role: 'user' };
+                initializeApp();
+            } else {
+                loginError.textContent = 'User not found.';
+                loginError.classList.remove('hidden');
+            }
+        } else {
+            loginError.textContent = 'Invalid credentials.';
+            loginError.classList.remove('hidden');
+        }
+    // ensure we land on dashboard after successful login
+    if (currentUser) showPage('dashboard-page');
+    }
+
+    function initializeApp() {
+        loginScreen.classList.add('hidden');
+        mainContainer.classList.remove('hidden');
+        
+        const addContributionBtn = document.getElementById('add-contribution-btn');
+        const adminFilters = document.getElementById('admin-contribution-filters');
+
+        if (currentUser.role === 'admin') {
+            document.getElementById('admin-nav-btn').classList.remove('hidden');
+            addContributionBtn.style.display = 'none';
+            adminFilters.style.display = 'block';
+            populateAdminFilters();
+        } else {
+            document.getElementById('admin-nav-btn').classList.add('hidden');
+            addContributionBtn.style.display = 'flex';
+            adminFilters.style.display = 'none';
+        }
+
+        populateUserDropdown();
+        populateActivityDropdownForUser();
+        renderAll();
+    }
+    
+    function handleLogout() {
+        currentUser = null;
+        loginScreen.classList.remove('hidden');
+        mainContainer.classList.add('hidden');
+        document.getElementById('login-form').reset();
+    }
+
+    function renderAll() {
+        renderDashboard();
+        renderContributionsTable();
+    }
+
+    // --- Dashboard Rendering ---
+    function renderDashboard() {
+        const dashboardCardsContainer = document.getElementById('dashboard-cards');
+        dashboardCardsContainer.innerHTML = '';
+        const userActivities = getUserPermittedActivities();
+
+        // Only show activities that are mounted. Limit to 12 tiles on the dashboard.
+        const mountedActivities = mockActivities.filter(a => a.mounted).slice(0, 12);
+
+        // For admins, show mounted activities. For users, show only mounted activities they are assigned to OR activities
+        // where they have at least one contribution (so they can see dashboards they contributed to).
+        const visibleActivities = (currentUser && currentUser.role === 'admin')
+            ? mountedActivities
+            : mountedActivities.filter(a => {
+                const permitted = (userActivityPermissions[currentUser?.id] || []).includes(a.id);
+                const hasContribution = mockContributions.some(c => c.activityId === a.id && c.responsiblePersonId === currentUser?.id);
+                return permitted || hasContribution;
+            });
+
+        visibleActivities.forEach(activity => {
+            const allContributions = mockContributions.filter(c => c.activityId === activity.id);
+            const triggeredContributions = allContributions.filter(c => c.completedStages.includes(activity.triggerStage));
+            
+            let progress = 0;
+            if (activity.type === 'fixed') {
+                const totalPercentage = triggeredContributions.reduce((sum, c) => sum + calculatePercentage(c), 0);
+                progress = triggeredContributions.length > 0 ? Math.round(totalPercentage / triggeredContributions.length) : 0;
+            } else {
+                progress = triggeredContributions.length;
+            }
+            dashboardCardsContainer.innerHTML += createDashboardCard(activity, progress, allContributions);
+        });
+    }
+
+    function createDashboardCard(activity, progress, allContributions) {
+        const target = activity.target;
+        const isPercentage = activity.type === 'fixed';
+        const displayProgress = isPercentage ? `${progress}%` : progress;
+        const displayTarget = isPercentage ? `${target}%` : target;
+        const progressPercentage = target > 0 ? Math.min((progress / target) * 100, 100) : 0;
+
+        const contributorsList = allContributions.map(c => {
+            const user = mockUsers.find(u => u.id === c.responsiblePersonId);
+            const userName = user ? user.name : 'Deleted User';
+            const currentStage = c.completedStages.length > 0 ? c.completedStages[c.completedStages.length - 1] : 'Not Started';
+            return `<li class="text-xs truncate">${userName} - <span class="font-semibold">${currentStage}</span></li>`;
+        }).join('');
+
+    return `
+            <div class="bg-white text-gray-800 tile-small rounded-xl shadow-md flex flex-col justify-between h-full">
+                <div class="truncate">
+                    <h3 class="tile-title truncate">${activity.name}</h3>
+                </div>
+                <div class="mt-2">
+                    <div class="flex items-end justify-between gap-2">
+                        <span class="tile-progress text-green-600 truncate">${displayProgress}</span>
+                        <div class="text-right">
+                            <div class="text-xs font-semibold text-gray-500">Target</div>
+                            <div class="text-sm text-gray-700">${displayTarget}</div>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div class="bg-green-600 h-2 rounded-full" style="width: ${progressPercentage}%"></div>
+                    </div>
+                </div>
+                <div class="mt-2 border-t pt-2">
+                    <h4 class="text-xs font-bold mb-1">Contributors</h4>
+                    <ul class="space-y-1 max-h-16 overflow-y-auto text-xs">
+                        ${contributorsList || '<li class="text-xs text-gray-500">No contributions yet.</li>'}
+                    </ul>
+                </div>
+                <div class="mt-3 flex justify-between items-center gap-2">
+                    <button onclick="showActivityContributions(${activity.id})" class="text-xs bg-blue-600 text-white px-2 py-1 rounded">View</button>
+                    ${getCanUserPostForActivity(activity.id) ? `<button onclick="window.openContributionModal()" class="text-xs bg-green-600 text-white px-2 py-1 rounded">Add</button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // --- Contributions Table ---
+    function renderContributionsTable() {
+        const tableBody = document.getElementById('contributions-table-body');
+        tableBody.innerHTML = '';
+        const contributionsToDisplay = getFilteredContributions();
+
+        if (contributionsToDisplay.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-8 text-gray-500">No contributions found.</td></tr>';
+            return;
+        }
+
+        contributionsToDisplay.forEach(c => {
+            const activity = mockActivities.find(a => a.id === c.activityId);
+            const user = mockUsers.find(u => u.id === c.responsiblePersonId);
+            const percentage = calculatePercentage(c);
+            const statusColor = getStatusColor(c.status);
+            const responsiblePersonName = user ? user.name : '<span class="text-gray-500 italic">Deleted User</span>';
+
+            const row = `
+                <tr class="bg-white border-b">
+                    <td class="px-6 py-4 font-medium">${activity?.name || 'N/A'}</td>
+                    <td class="px-6 py-4">${c.details}</td>
+                    <td class="px-6 py-4">${responsiblePersonName}</td>
+                    <td class="px-6 py-4">${percentage}%</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 text-xs font-semibold rounded-full ${statusColor}">${c.status}</span></td>
+                    <td class="px-6 py-4">${new Date(c.lastUpdated).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="window.openContributionModal(${c.id})" class="font-medium text-blue-600 hover:underline">Edit</button>
+                    </td>
+                </tr>
+            `;
+            tableBody.innerHTML += row;
+        });
+    }
+
+    // --- Charts Initialization & Filters ---
+    let pieChart, barChart, lineChart;
+
+    function initCharts() {
+        const pieCtx = document.getElementById('chart-pie').getContext('2d');
+        const barCtx = document.getElementById('chart-bar').getContext('2d');
+        const lineCtx = document.getElementById('chart-line').getContext('2d');
+
+        pieChart = new Chart(pieCtx, { type: 'pie', data: { labels: [], datasets: [{ data: [], backgroundColor: ['#10B981','#3B82F6','#F59E0B','#EF4444'] }] }, options: { responsive: true } });
+        barChart = new Chart(barCtx, { type: 'bar', data: { labels: [], datasets: [{ label: 'Contributions', data: [], backgroundColor: '#2563eb' }] }, options: { responsive: true, scales: { y: { beginAtZero: true } } } });
+        lineChart = new Chart(lineCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Contributions', data: [], borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.12)', fill: true }] }, options: { responsive: true, scales: { y: { beginAtZero: true } } } });
+    }
+
+    function populateChartFilters() {
+        const yearEl = document.getElementById('chart-filter-year');
+        const monthEl = document.getElementById('chart-filter-month');
+        const userEl = document.getElementById('chart-filter-user');
+
+        // years from contributions
+        const years = Array.from(new Set(mockContributions.map(c => new Date(c.lastUpdated).getFullYear()))).sort((a,b)=>b-a);
+        yearEl.innerHTML = '<option value="">All</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+        monthEl.innerHTML = '<option value="">All</option>' + Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+
+        userEl.innerHTML = '<option value="">All users</option>' + mockUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+    }
+
+    function getChartFilteredContributions() {
+        let contributions = mockContributions.slice();
+        const year = document.getElementById('chart-filter-year').value;
+        const month = document.getElementById('chart-filter-month').value;
+        const quarter = document.getElementById('chart-filter-quarter').value;
+        const from = document.getElementById('chart-filter-from').value;
+        const to = document.getElementById('chart-filter-to').value;
+        const userId = document.getElementById('chart-filter-user').value;
+        const status = document.getElementById('chart-filter-status').value;
+
+        if (year) contributions = contributions.filter(c => new Date(c.lastUpdated).getFullYear().toString() === year);
+        if (month) contributions = contributions.filter(c => (new Date(c.lastUpdated).getMonth()+1).toString() === month);
+        if (quarter) contributions = contributions.filter(c => { const m = new Date(c.lastUpdated).getMonth()+1; return Math.ceil(m/3).toString() === quarter; });
+        if (from) contributions = contributions.filter(c => new Date(c.lastUpdated) >= new Date(from));
+        if (to) contributions = contributions.filter(c => new Date(c.lastUpdated) <= new Date(to));
+        if (userId) contributions = contributions.filter(c => c.responsiblePersonId == userId);
+        if (status) contributions = contributions.filter(c => c.status === status);
+
+        return contributions;
+    }
+
+    function updateCharts() {
+        const data = getChartFilteredContributions();
+
+        // Pie: status distribution
+        const statusCounts = data.reduce((acc,c)=>{ acc[c.status]=(acc[c.status]||0)+1; return acc; },{});
+        pieChart.data.labels = Object.keys(statusCounts);
+        pieChart.data.datasets[0].data = Object.values(statusCounts);
+        pieChart.update();
+
+        // Bar: contributions per activity
+        const byActivity = {};
+        data.forEach(c => { const name = (mockActivities.find(a=>a.id===c.activityId)||{}).name || 'Unknown'; byActivity[name] = (byActivity[name]||0)+1; });
+        barChart.data.labels = Object.keys(byActivity);
+        barChart.data.datasets[0].data = Object.values(byActivity);
+        barChart.update();
+
+        // Line: contributions over time (by month)
+        const byMonth = {};
+        data.forEach(c => { const d = new Date(c.lastUpdated); const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; byMonth[key] = (byMonth[key]||0)+1; });
+        const sortedKeys = Object.keys(byMonth).sort();
+        lineChart.data.labels = sortedKeys;
+        lineChart.data.datasets[0].data = sortedKeys.map(k=>byMonth[k]);
+        lineChart.update();
+    }
+
+    // Wire filter events
+    ['chart-filter-year','chart-filter-month','chart-filter-quarter','chart-filter-from','chart-filter-to','chart-filter-user','chart-filter-status'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => updateCharts());
+    });
+
+    // Initialize charts and filters on load
+    initCharts();
+    populateChartFilters();
+    updateCharts();
+
+    // --- Admin Functions ---
+    function openManageActivitiesModal() {
+        renderActivitiesList();
+        openModal(manageActivitiesModal);
+    }
+
+    function renderActivitiesList() {
+        const list = document.getElementById('existing-activities-list');
+        list.innerHTML = '';
+        mockActivities.forEach(activity => {
+            const mountedLabel = activity.mounted ? 'Unmount' : 'Mount';
+            list.innerHTML += `
+                <div class="flex justify-between items-center p-2 border rounded">
+                    <div>
+                        <div class="font-semibold">${activity.name}</div>
+                        <div class="text-xs text-gray-600">Target: ${activity.target} • Type: ${activity.type} • Trigger: ${activity.triggerStage}</div>
+                    </div>
+                    <div>
+                        <button onclick="window.openEditActivityModal(${activity.id})" class="text-blue-500 text-sm mr-2">Edit</button>
+                        <button onclick="window.toggleMountActivity(${activity.id})" class="text-yellow-600 text-sm mr-2">${mountedLabel}</button>
+                        <button onclick="window.deleteActivity(${activity.id})" class="text-red-500 text-sm">Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    window.toggleMountActivity = (activityId) => {
+        const idx = mockActivities.findIndex(a => a.id === activityId);
+        if (idx === -1) return;
+        mockActivities[idx].mounted = !mockActivities[idx].mounted;
+        renderActivitiesList();
+        renderDashboard();
+        populateActivityDropdownForUser();
+    };
+
+    function handleAddActivity(e) {
+        e.preventDefault();
+        const newActivity = {
+            id: Date.now(),
+            name: document.getElementById('new-activity-name').value,
+            type: document.getElementById('new-activity-type').value,
+            target: parseInt(document.getElementById('new-activity-target').value),
+            stages: document.getElementById('new-activity-stages').value.split(',').map(s => s.trim()).filter(Boolean),
+            triggerStage: document.getElementById('new-activity-trigger').value,
+        };
+        mockActivities.push(newActivity);
+        renderActivitiesList();
+        populateActivityDropdownForUser();
+        e.target.reset();
+        renderDashboard();
+    }
+    
+    window.openEditActivityModal = (activityId) => {
+        const activity = mockActivities.find(a => a.id === activityId);
+        if (!activity) return;
+
+        const form = document.getElementById('edit-activity-form');
+        form.innerHTML = `
+            <input type="hidden" id="edit-activity-id" value="${activity.id}">
+            <div class="space-y-4">
+                <div>
+                    <label for="edit-activity-name" class="block text-sm font-medium">Name</label>
+                    <input type="text" id="edit-activity-name" value="${activity.name}" class="mt-1 block w-full">
+                </div>
+                <div>
+                    <label for="edit-activity-stages" class="block text-sm font-medium">Stages (comma-separated)</label>
+                    <input type="text" id="edit-activity-stages" value="${activity.stages.join(', ')}" class="mt-1 block w-full">
+                </div>
+                <div>
+                    <label for="edit-activity-trigger" class="block text-sm font-medium">Trigger Stage</label>
+                    <select id="edit-activity-trigger" class="mt-1 block w-full"></select>
+                </div>
+                <button type="submit" class="text-white font-bold py-2 px-4 rounded-lg" style="background-color: #16a34a;">Save Changes</button>
+            </div>
+        `;
+        
+        const stagesInput = form.querySelector('#edit-activity-stages');
+        const triggerSelect = form.querySelector('#edit-activity-trigger');
+
+        const updateEditTriggerOptions = () => {
+            const stages = stagesInput.value.split(',').map(s => s.trim()).filter(Boolean);
+            triggerSelect.innerHTML = stages.map(s => `<option value="${s}">${s}</option>`).join('');
+        };
+
+        stagesInput.addEventListener('input', updateEditTriggerOptions);
+        updateEditTriggerOptions();
+        triggerSelect.value = activity.triggerStage;
+
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            const index = mockActivities.findIndex(a => a.id === activityId);
+            mockActivities[index] = {
+                ...activity,
+                name: document.getElementById('edit-activity-name').value,
+                stages: document.getElementById('edit-activity-stages').value.split(',').map(s => s.trim()).filter(Boolean),
+                triggerStage: document.getElementById('edit-activity-trigger').value,
+            };
+            renderActivitiesList();
+            renderAll();
+            closeModal(editActivityModal);
+        };
+        
+        openModal(editActivityModal);
+    };
+
+
+    function openManageUsersModal() {
+        renderUsersList();
+        openModal(manageUsersModal);
+    }
+
+    function renderUsersList() {
+        const list = document.getElementById('existing-users-list');
+        list.innerHTML = '';
+        mockUsers.forEach(user => {
+            list.innerHTML += `
+                <div class="flex justify-between items-center p-2 border rounded">
+                    <span>${user.name} (${user.email})</span>
+                    <div>
+                        <button onclick="window.openEditUserModal(${user.id})" class="text-blue-500 text-sm mr-2">Edit</button>
+                        <button onclick="window.deleteUser(${user.id})" class="text-red-500 text-sm">Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function handleAddUser(e) {
+        e.preventDefault();
+        const newUser = {
+            id: Date.now(),
+            name: document.getElementById('new-user-name').value,
+            email: document.getElementById('new-user-email').value,
+        };
+        mockUsers.push(newUser);
+        userActivityPermissions[newUser.id] = []; // Initialize with no permissions
+        renderUsersList();
+        populateUserDropdown();
+        e.target.reset();
+    }
+    
+    window.openEditUserModal = (userId) => {
+        const user = mockUsers.find(u => u.id === userId);
+        if (!user) return;
+
+        const form = document.getElementById('edit-user-form');
+        const userPermissions = userActivityPermissions[userId] || [];
+        
+        const activitiesCheckboxes = mockActivities.map(activity => `
+            <div>
+                <input type="checkbox" id="perm-act-${activity.id}" value="${activity.id}" ${userPermissions.includes(activity.id) ? 'checked' : ''}>
+                <label for="perm-act-${activity.id}" class="ml-2">${activity.name}</label>
+            </div>
+        `).join('');
+
+        form.innerHTML = `
+            <input type="hidden" id="edit-user-id" value="${user.id}">
+            <div class="space-y-4">
+                <div><label>Name:</label><input type="text" id="edit-user-name" value="${user.name}" class="mt-1 block w-full"></div>
+                <div><label>Email:</label><input type="email" id="edit-user-email" value="${user.email}" class="mt-1 block w-full"></div>
+                <div>
+                    <label class="font-bold">Activity Permissions:</label>
+                    <div class="mt-2 space-y-2 max-h-48 overflow-y-auto border p-2 rounded">${activitiesCheckboxes}</div>
+                </div>
+                <button type="submit" class="text-white font-bold py-2 px-4 rounded-lg" style="background-color: #16a34a;">Save Changes</button>
+            </div>
+        `;
+
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            const index = mockUsers.findIndex(u => u.id === userId);
+            mockUsers[index].name = document.getElementById('edit-user-name').value;
+            mockUsers[index].email = document.getElementById('edit-user-email').value;
+            
+            const newPermissions = Array.from(form.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            userActivityPermissions[userId] = newPermissions;
+
+            renderUsersList();
+            renderAll();
+            closeModal(editUserModal);
+        };
+
+        openModal(editUserModal);
+    };
+
+    // --- Contribution Modal & Form ---
+    window.openContributionModal = (contributionId = null) => {
+        const form = document.getElementById('contribution-form');
+        form.reset();
+        populateActivityDropdownForUser();
+        
+        if (contributionId) {
+            const c = mockContributions.find(c => c.id === contributionId);
+            document.getElementById('modal-title').textContent = 'Edit Contribution';
+            document.getElementById('contribution-id').value = c.id;
+            document.getElementById('activity').value = c.activityId;
+            document.getElementById('contribution-details').value = c.details;
+            document.getElementById('responsible-person').value = c.responsiblePersonId;
+            document.getElementById('status').value = c.status;
+            
+            populatePhasesForContribution();
+            setTimeout(() => {
+                c.completedStages.forEach(stage => {
+                    const checkbox = document.querySelector(`input[name="phase"][value="${stage}"]`);
+                    if (checkbox) checkbox.checked = true;
+                });
+            }, 0);
+        } else {
+            document.getElementById('modal-title').textContent = 'Add New Contribution';
+            document.getElementById('contribution-id').value = '';
+            populatePhasesForContribution();
+        }
+        openModal(contributionModal);
+    };
+
+    function handleContributionFormSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('contribution-id').value;
+        const contributionData = {
+            activityId: parseInt(document.getElementById('activity').value),
+            details: document.getElementById('contribution-details').value,
+            responsiblePersonId: parseInt(document.getElementById('responsible-person').value),
+            status: document.getElementById('status').value,
+            completedStages: Array.from(document.querySelectorAll('#phases-checklist input:checked')).map(cb => cb.value),
+            lastUpdated: new Date().toISOString()
+        };
+
+        if (id) {
+            const index = mockContributions.findIndex(c => c.id == id);
+            mockContributions[index] = { ...mockContributions[index], ...contributionData };
+        } else {
+            mockContributions.push({ id: Date.now(), ...contributionData });
+        }
+        renderAll();
+        closeModal(contributionModal);
+    }
+    
+    // --- Helper & Utility Functions ---
+    function populatePhasesForContribution() {
+        const activityId = document.getElementById('activity').value;
+        const activity = mockActivities.find(a => a.id == activityId);
+        const checklist = document.getElementById('phases-checklist');
+        checklist.innerHTML = '';
+        if (activity?.stages) {
+            activity.stages.forEach(stage => {
+                checklist.innerHTML += `<div><input type="checkbox" name="phase" value="${stage}" class="phase-checkbox"><label class="ml-2">${stage}</label></div>`;
+            });
+        }
+    }
+
+    function updateTriggerStageOptions() {
+        const stagesInput = document.getElementById('new-activity-stages').value;
+        const triggerSelect = document.getElementById('new-activity-trigger');
+        const stages = stagesInput.split(',').map(s => s.trim()).filter(Boolean);
+        triggerSelect.innerHTML = stages.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
+    function getUserPermittedActivities() {
+        if (currentUser.role === 'admin') return mockActivities;
+        const permittedIds = userActivityPermissions[currentUser.id] || [];
+        return mockActivities.filter(a => permittedIds.includes(a.id));
+    }
+
+    function getCanUserPostForActivity(activityId) {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const permittedIds = userActivityPermissions[currentUser.id] || [];
+        return permittedIds.includes(activityId);
+    }
+
+    function getFilteredContributions() {
+        let contributions = mockContributions;
+        if (currentUser.role === 'user') {
+            const permittedIds = userActivityPermissions[currentUser.id] || [];
+            contributions = contributions.filter(c => permittedIds.includes(c.activityId));
+        } else { // Admin filters
+            const activityId = document.getElementById('filter-activity').value;
+            const userId = document.getElementById('filter-user').value;
+            const status = document.getElementById('filter-status').value;
+            if (activityId) contributions = contributions.filter(c => c.activityId == activityId);
+            if (userId) contributions = contributions.filter(c => c.responsiblePersonId == userId);
+            if (status) contributions = contributions.filter(c => c.status === status);
+        }
+        return contributions;
+    }
+
+    function populateUserDropdown() {
+        const select = document.getElementById('responsible-person');
+        select.innerHTML = mockUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+    }
+
+    function populateActivityDropdownForUser() {
+        const select = document.getElementById('activity');
+    // Only show activities that are mounted and that the current user can post to (admin sees mounted activities)
+    const mounted = mockActivities.filter(a => a.mounted);
+    const options = (currentUser && currentUser.role === 'admin') ? mounted : mounted.filter(a => (userActivityPermissions[currentUser?.id] || []).includes(a.id));
+    select.innerHTML = options.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+    }
+    
+    function populateAdminFilters() {
+        const activityFilter = document.getElementById('filter-activity');
+        const userFilter = document.getElementById('filter-user');
+        activityFilter.innerHTML = '<option value="">Filter by Activity</option>' + mockActivities.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+        userFilter.innerHTML = '<option value="">Filter by User</option>' + mockUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+    }
+
+    function calculatePercentage(contribution) {
+        const activity = mockActivities.find(a => a.id === contribution.activityId);
+        if (!activity?.stages?.length) return 100;
+        return Math.round((contribution.completedStages.length / activity.stages.length) * 100);
+    }
+
+    function getStatusColor(status) {
+        const colors = { 'Completed': 'bg-green-100 text-green-800', 'In Progress': 'bg-blue-100 text-blue-800', 'On Hold': 'bg-yellow-100 text-yellow-800' };
+        return colors[status] || 'bg-gray-100 text-gray-800';
+    }
+    
+    function openModal(modal) {
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        // center content and animate
+        const content = modal.querySelector('.modal-content');
+        if (content) {
+            content.style.transform = 'translateY(0)';
+            content.style.transition = 'transform 220ms ease, opacity 180ms ease';
+        }
+        const overlay = modal.querySelector('.modal-overlay');
+        if (overlay) overlay.addEventListener('click', () => closeModal(modal), { once: true });
+        // close on Esc
+        const escHandler = (e) => { if (e.key === 'Escape') closeModal(modal); };
+        modal._escHandler = escHandler;
+        document.addEventListener('keydown', escHandler);
+    }
+
+    function closeModal(modal) {
+        if (!modal) return;
+        const content = modal.querySelector('.modal-content');
+        if (content) {
+            content.style.transform = 'translateY(-12px)';
+            content.style.transition = 'transform 160ms ease, opacity 120ms ease';
+        }
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 180);
+        if (modal._escHandler) {
+            document.removeEventListener('keydown', modal._escHandler);
+            delete modal._escHandler;
+        }
+    }
+
+    window.deleteActivity = (id) => {
+        if (confirm('Are you sure? This will also remove associated contributions.')) {
+            mockActivities = mockActivities.filter(a => a.id !== id);
+            mockContributions = mockContributions.filter(c => c.activityId !== id);
+            renderActivitiesList();
+            renderAll();
+        }
+    };
+    window.deleteUser = (id) => {
+        if (confirm('Are you sure? Contributions will be marked as unassigned.')) {
+            mockContributions.forEach(c => { if (c.responsiblePersonId === id) c.responsiblePersonId = null; });
+            mockUsers = mockUsers.filter(u => u.id !== id);
+            renderUsersList();
+            renderAll();
+        }
+    };
+});
+</script>
+</body>
+</html>
