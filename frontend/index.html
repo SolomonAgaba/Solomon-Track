@@ -672,11 +672,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressPercentage = target > 0 ? Math.min((progress / target) * 100, 100) : 0;
 
         const contributorsList = allContributions.map(c => {
-            const user = mockUsers.find(u => u.id === c.responsiblePersonId);
-            const userName = user ? user.name : 'Deleted User';
-            const currentStage = c.completedStages.length > 0 ? c.completedStages[c.completedStages.length - 1] : 'Not Started';
-            return `<li class="text-xs truncate">${userName} - <span class="font-semibold">${currentStage}</span></li>`;
-        }).join('');
+                const user = mockUsers.find(u => u.id === c.responsiblePersonId);
+                const userName = user ? user.name : 'Deleted User';
+                const currentStage = c.completedStages.length > 0 ? c.completedStages[c.completedStages.length - 1] : 'Not Started';
+                const ts = c.lastUpdated ? new Date(c.lastUpdated).toLocaleString() : '';
+                return `<li class="text-xs truncate">${userName} - <span class="font-semibold">${currentStage}</span> <span class="text-gray-500 text-xs">${ts ? '('+ts+')' : ''}</span></li>`;
+            }).join('');
 
     return `
             <div class="bg-white text-gray-800 tile-small rounded-xl shadow-md flex flex-col justify-between h-full">
@@ -702,8 +703,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     </ul>
                 </div>
                 <div class="mt-3 flex justify-between items-center gap-2">
-                    <button onclick="showActivityContributions(${activity.id})" class="text-xs bg-blue-600 text-white px-2 py-1 rounded">View</button>
-                    ${getCanUserPostForActivity(activity.id) ? `<button onclick="window.openContributionModal()" class="text-xs bg-green-600 text-white px-2 py-1 rounded">Add</button>` : ''}
+                    <div class="flex gap-2">
+                        <button onclick="showActivityContributions(${activity.id})" class="text-xs bg-blue-600 text-white px-2 py-1 rounded">View</button>
+                        ${getCanUserPostForActivity(activity.id) ? `<button onclick="window.openContributionModal()" class="text-xs bg-green-600 text-white px-2 py-1 rounded">Add</button>` : ''}
+                        <button onclick="openActivityUpdatesModal(${activity.id})" class="text-xs bg-gray-300 text-gray-800 px-2 py-1 rounded">History</button>
+                    </div>
+                    <div class="text-xs text-gray-500">Latest: ${(() => {
+                        const latest = allContributions.reduce((L, c) => {
+                            const t = new Date(c.lastUpdated || 0).getTime();
+                            return t > L.t ? { t, c } : L;
+                        }, { t: 0, c: null }).c;
+                        return latest ? new Date(latest.lastUpdated).toLocaleString() : '—';
+                    })()}</div>
                 </div>
             </div>
         `;
